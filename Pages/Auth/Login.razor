@@ -1,0 +1,116 @@
+﻿@page "/login"
+@layout EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Iniciar Sesión - Student Portal</PageTitle>
+
+<div class="login-container">    
+
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card login-card">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <img src="/favicon.png" alt="Logo" class="img-fluid mb-3" style="max-height: 80px;">
+                            <h2 class="fw-bold">Student Portal</h2>
+                            <p class="text-muted">Inicia sesión para continuar</p>
+                        </div>
+
+                        <EditForm Model="@_loginModel" OnValidSubmit="HandleLogin">
+                            <DataAnnotationsValidator />
+                            <ValidationSummary class="text-danger mb-3" />
+
+                            @if (!string.IsNullOrEmpty(_errorMessage))
+                            {
+                                <div class="alert alert-danger alert-dismissible fade show">
+                                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                                    @_errorMessage
+                                    <button type="button" class="btn-close" @onclick="() => _errorMessage = null"></button>
+                                </div>
+                            }
+
+                            <div class="mb-3">
+                                <label for="nombreUsuario" class="form-label">Nombre de Usuario</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <InputText id="nombreUsuario" class="form-control" placeholder="Ingrese su nombre de usuario" @bind-Value="_loginModel.NombreUsuario" />
+                                </div>
+                                <ValidationMessage For="@(() => _loginModel.NombreUsuario)" />
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="contraseña" class="form-label">Contraseña</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                    <InputText id="contraseña" class="form-control" type="password" placeholder="Ingrese su contraseña" @bind-Value="_loginModel.Contraseña" />
+                                </div>
+                                <ValidationMessage For="@(() => _loginModel.Contraseña)" />
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="submit" class="btn btn-primary btn-lg" disabled="@_loading">
+                                    @if (_loading)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                        <span>Iniciando sesión...</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-box-arrow-in-right me-2"></i>
+                                        <span>Iniciar Sesión</span>
+                                    }
+                                </button>
+                            </div>
+                        </EditForm>
+
+                        <div class="text-center mt-4">
+                            <p class="text-muted">¿No tienes cuenta? <br>Contacta al administrador del sistema.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="/" class="text-decoration-none">
+                        <i class="bi bi-arrow-left me-1"></i> Volver al inicio
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private UsuarioLoginDto _loginModel = new UsuarioLoginDto();
+    private bool _loading = false;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Redireccionar si ya está autenticado
+        if (await AuthService.IsAuthenticated())
+        {
+            NavigationManager.NavigateTo("/dashboard");
+        }
+    }
+
+    private async Task HandleLogin()
+    {
+        _loading = true;
+        _errorMessage = null;
+
+        var result = await AuthService.Login(_loginModel);
+
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo("/dashboard");
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+
+        _loading = false;
+    }
+}

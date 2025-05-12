@@ -1,0 +1,319 @@
+﻿@page "/inscripciones/clases"
+@attribute [Authorize(Roles = "Estudiante")]
+@inject IAuthService AuthService
+@inject IEstudianteService EstudianteService
+@inject IInscripcionService InscripcionService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Mis Clases - Student Portal</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Mis Clases</h1>
+        <div>
+            <a href="/inscripciones/materias" class="btn btn-primary me-2">Inscribir Materias</a>
+            <a href="/dashboard" class="btn btn-secondary">Volver al Dashboard</a>
+        </div>
+    </div>
+
+    <NavigationButtons />
+    
+    @if (_loading)
+    {
+        <Loading IsLoading="true" Message="Cargando inscripciones..." />
+    }
+    else if (_errorMessage != null)
+    {
+        <Alert AlertType="danger" Title="Error" Message="@_errorMessage" OnClose="ClearError" />
+    }
+    else if (_successMessage != null)
+    {
+        <Alert AlertType="success" Message="@_successMessage" OnClose="ClearSuccess" />
+    }
+    
+    @if (_estudiante != null)
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Información del Estudiante</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Nombre:</strong> @_estudiante.NombreCompleto</p>
+                        <p><strong>Identificación:</strong> @_estudiante.Identificacion</p>
+                        <p><strong>Programa:</strong> @_estudiante.Programa</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Materias Inscritas:</strong> @_estudiante.MateriasInscritasCount de 3</p>
+                        <p><strong>Créditos Actuales:</strong> @_estudiante.CreditosActuales</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    
+    @if (_inscripciones != null && _inscripciones.Any())
+    {
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Materias Inscritas</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Materia</th>
+                                <th>Créditos</th>
+                                <th>Profesores</th>
+                                <th>Estado</th>
+                                <th>Calificación</th>
+                                <th>Fecha Inscripción</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var inscripcion in _inscripciones)
+                            {
+                                <tr>
+                                    <td>@inscripcion.MateriaCodigoyNombre</td>
+                                    <td>@inscripcion.CredMateria</td>
+                                    <td>
+                                        @if (inscripcion.Profesores != null && inscripcion.Profesores.Any())
+                                        {
+                                            <ul class="list-unstyled mb-0">
+                                                @foreach (var profesor in inscripcion.Profesores)
+                                                {
+                                                    <li>@profesor</li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <span>Sin profesores asignados</span>
+                                        }
+                                    </td>
+                                    <td>@inscripcion.Estado</td>
+                                    <td>@(inscripcion.Calificacion?.ToString("N2") ?? "Sin calificar")</td>
+                                    <td>@inscripcion.FechaInscripcion.ToString("dd/MM/yyyy")</td>
+                                    <td>
+                                        @if (inscripcion.Estado == "Inscrito")
+                                        {
+                                            <button class="btn btn-danger btn-sm" @onclick="() => ConfirmCancelar(inscripcion)" disabled="@_cancelando">
+                                                @if (_cancelando && _inscripcionCancelando == inscripcion.Id)
+                                                {
+                                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                    <span class="ms-1">Cancelando...</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="oi oi-trash me-1"></span>
+                                                    <span>Cancelar</span>
+                                                }
+                                            </button>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Compañeros de Clase</h5>
+            </div>
+            <div class="card-body">
+                @if (_companeros != null && _companeros.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Materia</th>
+                                    <th>Compañeros</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var materia in _companeros.GroupBy(c => c.MateriaId))
+                                {
+                                    <tr>
+                                        <td>@materia.First().MateriaNombre</td>
+                                        <td>
+                                            <ul class="list-unstyled">
+                                                @foreach (var companero in materia)
+                                                {
+                                                    <li>@companero.CompaneroNombre</li>
+                                                }
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        No tienes compañeros de clase registrados.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (!_loading && _estudiante != null)
+    {
+        <div class="alert alert-info">
+            No tienes materias inscritas actualmente. 
+            <a href="/inscripciones/materias" class="alert-link">Inscribir materias</a>
+        </div>
+    }
+    
+    <Confirm 
+        IsVisible="_showCancelarConfirm" 
+        Title="Confirmar Cancelación" 
+        Message="@($"¿Está seguro que desea cancelar la inscripción a la materia '{_inscripcionACancelar?.MateriaCodigoyNombre}'?")" 
+        OnConfirm="CancelarInscripcion" 
+        OnCancel="CancelCancelar" />
+</div>
+
+@code {
+    private EstudianteDto? _estudiante;
+    private List<InscripcionDto>? _inscripciones;
+    private List<CompaneroClaseDto>? _companeros;
+    private bool _loading = true;
+    private bool _cancelando = false;
+    private int _inscripcionCancelando = 0;
+    private bool _showCancelarConfirm = false;
+    private InscripcionDto? _inscripcionACancelar;
+    private string? _errorMessage;
+    private string? _successMessage;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatos();
+    }
+    
+    private async Task CargarDatos()
+    {
+        _loading = true;
+        _errorMessage = null;
+        
+        try
+        {
+            var usuarioActual = AuthService.GetCurrentUser();
+            if (usuarioActual == null)
+            {
+                var profileResult = await AuthService.GetProfile();
+                if (profileResult.Success)
+                {
+                    usuarioActual = profileResult.Data;
+                }
+                else
+                {
+                    _errorMessage = "No se pudo obtener información del usuario actual";
+                    _loading = false;
+                    return;
+                }
+            }
+            
+            // Buscar el estudiante asociado al usuario
+            var estudiantesResult = await EstudianteService.GetAll();
+            if (estudiantesResult.Success && estudiantesResult.Data != null)
+            {
+                _estudiante = estudiantesResult.Data.FirstOrDefault(e => e.UsuarioId == usuarioActual!.Id);
+                
+                if (_estudiante != null)
+                {
+                    // Obtener las inscripciones del estudiante
+                    var inscripcionesResult = await InscripcionService.GetByEstudiante(_estudiante.Id);
+                    if (inscripcionesResult.Success && inscripcionesResult.Data != null)
+                    {
+                        _inscripciones = inscripcionesResult.Data;
+                    }
+                    
+                    // Obtener compañeros de clase
+                    var companerosResult = await EstudianteService.GetCompaneros(_estudiante.Id);
+                    if (companerosResult.Success)
+                    {
+                        _companeros = companerosResult.Data;
+                    }
+                }
+                else
+                {
+                    _errorMessage = "No se encontró información de estudiante para el usuario actual";
+                }
+            }
+            else
+            {
+                _errorMessage = estudiantesResult.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al cargar datos: {ex.Message}";
+        }
+        
+        _loading = false;
+    }
+    
+    private void ConfirmCancelar(InscripcionDto inscripcion)
+    {
+        _inscripcionACancelar = inscripcion;
+        _showCancelarConfirm = true;
+    }
+    
+    private void CancelCancelar()
+    {
+        _showCancelarConfirm = false;
+        _inscripcionACancelar = null;
+    }
+    
+    private async Task CancelarInscripcion()
+    {
+        if (_inscripcionACancelar == null) return;
+        
+        _cancelando = true;
+        _inscripcionCancelando = _inscripcionACancelar.Id;
+        _errorMessage = null;
+        _successMessage = null;
+        
+        try
+        {
+            var result = await InscripcionService.Cancelar(_inscripcionACancelar.Id);
+            
+            if (result.Success)
+            {
+                _successMessage = "Inscripción cancelada correctamente";
+                await CargarDatos();
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al cancelar inscripción: {ex.Message}";
+        }
+        
+        _showCancelarConfirm = false;
+        _inscripcionACancelar = null;
+        _cancelando = false;
+        _inscripcionCancelando = 0;
+    }
+    
+    private void ClearError()
+    {
+        _errorMessage = null;
+    }
+    
+    private void ClearSuccess()
+    {
+        _successMessage = null;
+    }
+}

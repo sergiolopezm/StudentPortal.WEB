@@ -1,0 +1,92 @@
+﻿@inherits LayoutComponentBase
+@inject StudentPortal.WEB.Services.Interface.IAuthService AuthService
+@using StudentPortal.WEB.Services.Interface
+@using StudentPortal.WEB.Models.Auth
+@inject NavigationManager NavigationManager
+
+@code {
+    private bool _isAuthenticated;
+    private UsuarioPerfilDto? _currentUser;
+
+    // flags
+    private bool _isLoginPage;
+    private bool _isHomePage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticated();
+        _currentUser = AuthService.GetCurrentUser();
+        SetPageFlags();
+    }
+
+    protected override void OnParametersSet() => SetPageFlags();
+
+    private void SetPageFlags()
+    {
+        var relative = NavigationManager
+                       .ToBaseRelativePath(NavigationManager.Uri)
+                       .TrimEnd('/');
+
+        _isLoginPage = relative.Equals("login", StringComparison.OrdinalIgnoreCase);
+        _isHomePage = string.IsNullOrWhiteSpace(relative);
+    }
+
+    private async Task Logout()
+    {
+        var result = await AuthService.Logout();
+        if (result.Success)
+            NavigationManager.NavigateTo("/login", true);
+    }
+}
+
+<div class="page">
+    @* 1. Barra lateral (no en /login) *@
+    @if (!_isLoginPage)
+    {
+        <div class="sidebar">
+            <NavMenu />
+        </div>
+    }
+
+    <main>
+        @* 2. Fila superior (no en /login) *@
+        @if (!_isLoginPage)
+        {
+            <div class="top-row px-4 d-flex align-items-center">
+                @* <— d-flex  *@
+                @if (_isAuthenticated)
+                {
+                    <div class="ms-auto">
+                        @* ← empuja a la derecha *@
+                        <UserDropdown />
+                    </div>
+                }
+                else if (!_isHomePage)                       @* botón solo fuera del Home *@
+                {
+                    <a href="/login"
+                       class="btn btn-primary ms-auto">
+                        @* ← ms-auto idem *@
+                        <i class="bi bi-box-arrow-in-right"></i> Iniciar&nbsp;sesión
+                    </a>
+                }
+            </div>
+        }
+
+        @* 3. Contenido *@
+        <article class="content px-4">
+            @Body
+        </article>
+
+        @* 4. Pie de página (no en /login) *@
+        @if (!_isLoginPage)
+        {
+            <footer class="footer text-center py-3 mt-5 border-top">
+                <div class="container">
+                    <span class="text-muted">
+                        © @DateTime.Now.Year Student Portal – Todos los derechos reservados
+                    </span>
+                </div>
+            </footer>
+        }
+    </main>
+</div>

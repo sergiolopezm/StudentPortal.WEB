@@ -1,0 +1,22 @@
+﻿<div class="alert alert-@AlertType alert-dismissible fade show" role="alert">
+    @if (!string.IsNullOrEmpty(Title))
+    {
+        <h4 class="alert-heading">@Title</h4>
+    }
+    <p>@Message</p>
+    <button type="button" class="btn-close" @onclick="OnClose" aria-label="Close"></button>
+</div>
+
+@code {
+    [Parameter]
+    public string AlertType { get; set; } = "info"; // success, info, warning, danger
+
+    [Parameter]
+    public string Title { get; set; } = "";
+
+    [Parameter]
+    public string Message { get; set; } = "";
+
+    [Parameter]
+    public EventCallback OnClose { get; set; }
+}

@@ -1,0 +1,98 @@
+﻿@page "/"
+@inject NavigationManager NavigationManager
+@inject IAuthService AuthService
+
+<PageTitle>Student Portal - Inicio</PageTitle>
+
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12 text-center mb-5">
+            <img src="/logo-persona.png" alt="Logo" class="img-fluid mb-4" style="max-height: 120px;">
+            <h1 class="display-4 fw-bold">Bienvenido al Portal de Estudiantes</h1>
+            <p class="lead">Sistema de gestión académica y registro de materias</p>
+            <hr class="my-4">
+
+            @if (_isAuthenticated)
+            {
+                <p>Acceda a su panel para gestionar sus inscripciones y consultar información académica.</p>
+                <a class="btn btn-primary btn-lg px-5 py-3" href="dashboard" role="button">
+                    <i class="bi bi-speedometer2 me-2"></i>Ir al Dashboard
+                </a>
+            }
+            else
+            {
+                <p>Inicie sesión para acceder al sistema o consulte más información sobre la plataforma.</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a class="btn btn-primary btn-lg px-5 py-3" href="login" role="button">
+                        <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar Sesión
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="row mt-5">
+        <div class="col-md-4">
+            <div class="card mb-4 h-100 border-primary">
+                <div class="card-body text-center p-4">
+                    <div class="icon-box mb-3">
+                        <i class="bi bi-journal-plus text-primary fs-1"></i>
+                    </div>
+                    <h5 class="card-title">Inscripción a Materias</h5>
+                    <p class="card-text">Inscríbete en hasta 3 materias con diferentes profesores según tu programa académico.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-4 h-100 border-success">
+                <div class="card-body text-center p-4">
+                    <div class="icon-box mb-3">
+                        <i class="bi bi-mortarboard text-success fs-1"></i>
+                    </div>
+                    <h5 class="card-title">Gestión Académica</h5>
+                    <p class="card-text">Consulta tus calificaciones, estado académico y gestiona tus inscripciones.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card mb-4 h-100 border-info">
+                <div class="card-body text-center p-4">
+                    <div class="icon-box mb-3">
+                        <i class="bi bi-people text-info fs-1"></i>
+                    </div>
+                    <h5 class="card-title">Compañeros de Clase</h5>
+                    <p class="card-text">Conoce quiénes serán tus compañeros en cada materia y facilita la comunicación.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card bg-light">
+                <div class="card-body p-4">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h4>¿Necesitas ayuda?</h4>
+                            <p class="mb-0">Si tienes problemas para acceder a tu cuenta o necesitas asistencia, contacta al administrador del sistema.</p>
+                        </div>
+                        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                            <a href="mailto:admin@sistema.com" class="btn btn-outline-primary">
+                                <i class="bi bi-envelope me-2"></i>Contactar Soporte
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private bool _isAuthenticated;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticated();
+    }
+}

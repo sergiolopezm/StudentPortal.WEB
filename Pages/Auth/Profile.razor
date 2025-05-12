@@ -1,0 +1,73 @@
+﻿@page "/auth/profile"
+@attribute [Authorize]
+@inject IAuthService AuthService
+
+<PageTitle>Mi Perfil - Student Portal</PageTitle>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Mi Perfil</h3>
+                </div>
+
+                <NavigationButtons />
+
+                <div class="card-body">
+                    @if (_loading)
+                    {
+                        <Loading IsLoading="true" Message="Cargando información del perfil..." />
+                    }
+                    else if (_usuario != null)
+                    {
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h5>Información de Usuario</h5>
+                                <p><strong>Nombre de Usuario:</strong> @_usuario.NombreUsuario</p>
+                                <p><strong>Nombre Completo:</strong> @_usuario.Nombre @_usuario.Apellido</p>
+                                <p><strong>Email:</strong> @_usuario.Email</p>
+                                <p><strong>Rol:</strong> @_usuario.Rol</p>
+                                <p><strong>Fecha de Creación:</strong> @_usuario.FechaCreacion.ToString("dd/MM/yyyy")</p>
+                                <p><strong>Último Acceso:</strong> @(_usuario.FechaUltimoAcceso?.ToString("dd/MM/yyyy HH:mm") ?? "No ha iniciado sesión")</p>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-danger">
+                            No se pudo cargar la información del perfil. @_errorMessage
+                        </div>
+                    }
+                </div>
+                <div class="card-footer">
+                    <a href="/dashboard" class="btn btn-secondary">Volver al Dashboard</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private UsuarioPerfilDto? _usuario;
+    private bool _loading = true;
+    private string? _errorMessage;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        
+        var result = await AuthService.GetProfile();
+        
+        if (result.Success)
+        {
+            _usuario = result.Data;
+        }
+        else
+        {
+            _errorMessage = result.Message;
+        }
+        
+        _loading = false;
+    }
+}

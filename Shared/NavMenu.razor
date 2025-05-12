@@ -1,0 +1,101 @@
+﻿@inject IAuthService AuthService
+@inject NavigationManager NavigationManager
+
+@{
+    var currentUrl = NavigationManager.Uri;
+    bool isLoginPage = currentUrl.EndsWith("/login") || currentUrl.EndsWith("/login/");
+}
+
+@if (!isLoginPage)
+{    
+    <div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
+        <nav class="flex-column">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <i class="bi bi-house-fill" aria-hidden="true"></i> Inicio
+                </NavLink>
+            </div>
+
+            @if (_isAuthenticated)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="dashboard">
+                        <i class="bi bi-speedometer2" aria-hidden="true"></i> Dashboard
+                    </NavLink>
+                </div>
+
+                @if (_userRole == "Estudiante")
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="inscripciones/materias">
+                            <i class="bi bi-journal-plus" aria-hidden="true"></i> Seleccionar Materias
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="inscripciones/clases">
+                            <i class="bi bi-people" aria-hidden="true"></i> Mis Clases
+                        </NavLink>
+                    </div>
+                }
+
+                @if (_userRole == "Admin")
+                {
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="estudiantes">
+                            <i class="bi bi-person-badge" aria-hidden="true"></i> Estudiantes
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="materias">
+                            <i class="bi bi-book" aria-hidden="true"></i> Materias
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="auth/register">
+                            <i class="bi bi-person-plus" aria-hidden="true"></i> Registrar Usuario
+                        </NavLink>
+                    </div>
+                }
+
+                <div class="nav-item px-3 mt-3">
+                    <NavLink class="nav-link" href="auth/profile">
+                        <i class="bi bi-person" aria-hidden="true"></i> Mi Perfil
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <a class="nav-link text-danger" href="javascript:void(0)" @onclick="Logout">
+                        <i class="bi bi-box-arrow-left" aria-hidden="true"></i> Cerrar Sesión
+                    </a>
+                </div>
+            }
+        </nav>
+    </div>
+}
+
+@code {
+    private bool collapseNavMenu = true;
+    private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+    private bool _isAuthenticated;
+    private string? _userRole;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _isAuthenticated = await AuthService.IsAuthenticated();
+        var currentUser = AuthService.GetCurrentUser();
+        _userRole = currentUser?.Rol;
+    }
+
+    private void ToggleNavMenu()
+    {
+        collapseNavMenu = !collapseNavMenu;
+    }
+
+    private async Task Logout()
+    {
+        var result = await AuthService.Logout();
+        if (result.Success)
+        {
+            NavigationManager.NavigateTo("/login", true);
+        }
+    }
+}

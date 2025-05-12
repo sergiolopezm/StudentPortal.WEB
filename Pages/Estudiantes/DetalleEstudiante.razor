@@ -1,0 +1,204 @@
+﻿@page "/estudiantes/{Id:int}"
+@attribute [Authorize]
+@inject IEstudianteService EstudianteService
+@inject IInscripcionService InscripcionService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Detalle de Estudiante - Student Portal</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Detalle de Estudiante</h1>
+        <div>
+            <a href="/estudiantes" class="btn btn-secondary me-2">Volver a la Lista</a>
+            <a href="/estudiantes/editar/@Id" class="btn btn-warning">Editar</a>
+        </div>
+    </div>
+
+    <NavigationButtons />
+    
+    @if (_loading)
+    {
+        <Loading IsLoading="true" Message="Cargando información del estudiante..." />
+    }
+    else if (_errorMessage != null)
+    {
+        <Alert AlertType="danger" Title="Error" Message="@_errorMessage" OnClose="ClearError" />
+    }
+    else if (_estudiante != null)
+    {
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Información Personal</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>ID:</strong> @_estudiante.Id</p>
+                        <p><strong>Nombre Completo:</strong> @_estudiante.NombreCompleto</p>
+                        <p><strong>Identificación:</strong> @_estudiante.Identificacion</p>
+                        <p><strong>Email:</strong> @_estudiante.Email</p>
+                        <p><strong>Teléfono:</strong> @(_estudiante.Telefono ?? "No registrado")</p>
+                        <p><strong>Programa:</strong> @_estudiante.Programa</p>
+                        <p><strong>Carrera:</strong> @(_estudiante.Carrera ?? "No registrada")</p>
+                        <p><strong>Materias Inscritas:</strong> @_estudiante.MateriasInscritasCount / 3</p>
+                        <p><strong>Créditos Actuales:</strong> @_estudiante.CreditosActuales</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">Materias Inscritas</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_inscripciones != null && _inscripciones.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Materia</th>
+                                            <th>Créditos</th>
+                                            <th>Estado</th>
+                                            <th>Calificación</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var inscripcion in _inscripciones)
+                                        {
+                                            <tr>
+                                                <td>@inscripcion.MateriaCodigoyNombre</td>
+                                                <td>@inscripcion.CredMateria</td>
+                                                <td>@inscripcion.Estado</td>
+                                                <td>@(inscripcion.Calificacion?.ToString("N2") ?? "Sin calificar")</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                Este estudiante no tiene materias inscritas.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Compañeros de Clase</h5>
+            </div>
+            <div class="card-body">
+                @if (_companeros != null && _companeros.Any())
+                {
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Materia</th>
+                                    <th>Compañeros</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var materia in _companeros.GroupBy(c => c.MateriaId))
+                                {
+                                    <tr>
+                                        <td>@materia.First().MateriaNombre</td>
+                                        <td>
+                                            <ul class="list-unstyled">
+                                                @foreach (var companero in materia)
+                                                {
+                                                    <li>@companero.CompaneroNombre</li>
+                                                }
+                                            </ul>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-info">
+                        No hay compañeros de clase registrados para este estudiante.
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            No se encontró información del estudiante.
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = null!;
+    
+    private EstudianteDto? _estudiante;
+    private List<InscripcionDto>? _inscripciones;
+    private List<CompaneroClaseDto>? _companeros;
+    private bool _loading = true;
+    private string? _errorMessage;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEstudiante();
+    }
+    
+    private async Task LoadEstudiante()
+    {
+        _loading = true;
+        _errorMessage = null;
+        
+        if (int.TryParse(Id, out var estudianteId))
+        {
+            // Cargar datos del estudiante
+            var estudianteResult = await EstudianteService.GetById(estudianteId);
+            
+            if (estudianteResult.Success)
+            {
+                _estudiante = estudianteResult.Data;
+                
+                // Cargar inscripciones del estudiante
+                var inscripcionesResult = await InscripcionService.GetByEstudiante(estudianteId);
+                if (inscripcionesResult.Success)
+                {
+                    _inscripciones = inscripcionesResult.Data;
+                }
+                
+                // Cargar compañeros de clase
+                var companerosResult = await EstudianteService.GetCompaneros(estudianteId);
+                if (companerosResult.Success)
+                {
+                    _companeros = companerosResult.Data;
+                }
+            }
+            else
+            {
+                _errorMessage = estudianteResult.Message;
+            }
+        }
+        else
+        {
+            _errorMessage = "ID de estudiante inválido";
+        }
+        
+        _loading = false;
+    }
+    
+    private void ClearError()
+    {
+        _errorMessage = null;
+    }
+}

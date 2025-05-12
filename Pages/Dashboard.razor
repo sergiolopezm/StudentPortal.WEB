@@ -1,0 +1,401 @@
+﻿@page "/dashboard"
+@attribute [Authorize]
+@inject IAuthService AuthService
+@inject IMateriaService MateriaService
+@inject IEstudianteService EstudianteService
+@inject IInscripcionService InscripcionService
+
+<PageTitle>Dashboard - Student Portal</PageTitle>
+
+@if (_loading)
+{
+    <div class="container mt-4">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-3">Cargando información del dashboard...</p>
+        </div>
+    </div>
+}
+else if (_errorMessage != null)
+{
+    <div class="container mt-4">
+        <div class="alert alert-danger">
+            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error al cargar datos</h4>
+            <p>@_errorMessage</p>
+            <hr />
+            <p class="mb-0">Intente nuevamente más tarde o contacte al administrador.</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-12 mb-4">
+                <div class="card welcome-card bg-primary text-white">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center">
+                            <div>
+                                <h3 class="mb-2">Bienvenido, @(_currentUser?.Nombre ?? "Usuario") @(_currentUser?.Apellido ?? "")</h3>
+                                <p class="mb-0">@GetWelcomeMessage()</p>
+                            </div>
+                            <div class="ms-auto">
+                                <i class="bi bi-mortarboard-fill fs-1 opacity-50"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-person-badge me-2"></i>Información Personal</h5>
+                    </div>
+                    <div class="card-body">
+                        @if (_currentUser != null)
+                        {
+                            <p><i class="bi bi-person-fill me-2"></i><strong>Nombre:</strong> @_currentUser.Nombre @_currentUser.Apellido</p>
+                            <p><i class="bi bi-person-vcard me-2"></i><strong>Usuario:</strong> @_currentUser.NombreUsuario</p>
+                            <p><i class="bi bi-envelope-fill me-2"></i><strong>Email:</strong> @_currentUser.Email</p>
+                            <p><i class="bi bi-shield-lock me-2"></i><strong>Rol:</strong> @_currentUser.Rol</p>
+                            <p><i class="bi bi-calendar-check me-2"></i><strong>Último acceso:</strong> @(_currentUser.FechaUltimoAcceso?.ToString("dd/MM/yyyy HH:mm") ?? "No registrado")</p>
+
+                            <div class="d-grid gap-2 mt-4">
+                                <a href="/auth/profile" class="btn btn-outline-primary">
+                                    <i class="bi bi-person-gear me-2"></i>Ver perfil completo
+                                </a>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="text-center text-muted">Cargando información...</p>
+                            <div class="d-flex justify-content-center">
+                                <div class="spinner-border spinner-border-sm text-primary" role="status">
+                                    <span class="visually-hidden">Cargando...</span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @if (_currentUser?.Rol == "Estudiante" && _estudiante != null)
+            {
+                <div class="col-md-8">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="bi bi-mortarboard-fill me-2"></i>Información Académica</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><i class="bi bi-person-badge me-2"></i><strong>Identificación:</strong> @_estudiante.Identificacion</p>
+                                    <p><i class="bi bi-building me-2"></i><strong>Programa:</strong> @_estudiante.Programa</p>
+                                    <p><i class="bi bi-mortarboard me-2"></i><strong>Carrera:</strong> @(_estudiante.Carrera ?? "No registrada")</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="progress-info mb-3">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span><i class="bi bi-book me-1"></i><strong>Materias Inscritas:</strong></span>
+                                            <span class="fw-bold">@_estudiante.MateriasInscritasCount de 3</span>
+                                        </div>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar bg-success" role="progressbar"
+                                                 style="width: @(_estudiante.MateriasInscritasCount * 100 / 3)%"
+                                                 aria-valuenow="@_estudiante.MateriasInscritasCount" aria-valuemin="0" aria-valuemax="3"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="progress-info">
+                                        <div class="d-flex justify-content-between mb-1">
+                                            <span><i class="bi bi-star me-1"></i><strong>Créditos Actuales:</strong></span>
+                                            <span class="fw-bold">@_estudiante.CreditosActuales</span>
+                                        </div>
+                                        <div class="progress" style="height: 10px;">
+                                            <div class="progress-bar bg-info" role="progressbar"
+                                                 style="width: @(_estudiante.CreditosActuales * 100 / 9)%"
+                                                 aria-valuenow="@_estudiante.CreditosActuales" aria-valuemin="0" aria-valuemax="9"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-grid gap-2 mt-4">
+                                        @if (_estudiante.MateriasInscritasCount < 3)
+                                        {
+                                            <a href="/inscripciones/materias" class="btn btn-primary">
+                                                <i class="bi bi-plus-circle me-2"></i>Inscribir Materias
+                                            </a>
+                                        }
+                                        <a href="/inscripciones/clases" class="btn btn-outline-primary">
+                                            <i class="bi bi-people me-2"></i>Ver Mis Clases
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (_currentUser?.Rol == "Admin")
+            {
+                <div class="col-md-8">
+                    <div class="card h-100">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0"><i class="bi bi-speedometer2 me-2"></i>Panel de Administración</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-primary">
+                                        <div class="card-body text-center p-4">
+                                            <i class="bi bi-people-fill text-primary fs-1 mb-3"></i>
+                                            <h5 class="card-title">Gestión de Estudiantes</h5>
+                                            <p class="card-text">Administre los estudiantes del sistema</p>
+                                            <a href="/estudiantes" class="btn btn-primary">
+                                                <i class="bi bi-arrow-right-circle me-2"></i>Ir a Estudiantes
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="card h-100 border-success">
+                                        <div class="card-body text-center p-4">
+                                            <i class="bi bi-book-fill text-success fs-1 mb-3"></i>
+                                            <h5 class="card-title">Gestión de Materias</h5>
+                                            <p class="card-text">Administre las materias disponibles</p>
+                                            <a href="/materias" class="btn btn-success">
+                                                <i class="bi bi-arrow-right-circle me-2"></i>Ir a Materias
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <div class="card border-warning">
+                                        <div class="card-body text-center p-4">
+                                            <i class="bi bi-person-plus-fill text-warning fs-1 mb-3"></i>
+                                            <h5 class="card-title">Registrar Nuevo Usuario</h5>
+                                            <p class="card-text">Añada nuevos estudiantes o profesores al sistema</p>
+                                            <a href="/auth/register" class="btn btn-warning">
+                                                <i class="bi bi-plus-circle me-2"></i>Crear Usuario
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (_currentUser?.Rol == "Estudiante" && _inscripciones != null)
+        {
+            <div class="row mt-4">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-journal-check me-2"></i>Mis Materias Inscritas</h5>
+                        </div>
+                        <div class="card-body">
+                            @if (_inscripciones.Any())
+                            {
+                                <div class="table-responsive">
+                                    <table class="table table-striped table-hover">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th><i class="bi bi-book me-1"></i>Materia</th>
+                                                <th><i class="bi bi-star me-1"></i>Créditos</th>
+                                                <th><i class="bi bi-person-workspace me-1"></i>Profesores</th>
+                                                <th><i class="bi bi-check-circle me-1"></i>Estado</th>
+                                                <th><i class="bi bi-award me-1"></i>Calificación</th>
+                                                <th><i class="bi bi-gear me-1"></i>Acciones</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @foreach (var inscripcion in _inscripciones)
+                                            {
+                                                <tr>
+                                                    <td>@inscripcion.MateriaCodigoyNombre</td>
+                                                    <td class="text-center">@inscripcion.CredMateria</td>
+                                                    <td>
+                                                        @if (inscripcion.Profesores != null && inscripcion.Profesores.Any())
+                                                        {
+                                                            <ul class="list-unstyled mb-0">
+                                                                @foreach (var profesor in inscripcion.Profesores)
+                                                                {
+                                                                    <li><i class="bi bi-person-circle me-1"></i>@profesor</li>
+                                                                }
+                                                            </ul>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">Sin profesores asignados</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge @GetStatusBadgeClass(inscripcion.Estado)">
+                                                            @inscripcion.Estado
+                                                        </span>
+                                                    </td>
+                                                    <td>
+                                                        @if (inscripcion.Calificacion.HasValue)
+                                                        {
+                                                            <span class="badge @GetGradeBadgeClass(inscripcion.Calificacion.Value)">
+                                                                @inscripcion.Calificacion?.ToString("N2")
+                                                            </span>
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="text-muted">Sin calificar</span>
+                                                        }
+                                                    </td>
+                                                    <td>
+                                                        <a href="/inscripciones/clases" class="btn btn-sm btn-outline-info">
+                                                            <i class="bi bi-eye me-1"></i>Detalles
+                                                        </a>
+                                                    </td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle-fill me-2"></i>
+                                    No tienes materias inscritas actualmente.
+                                    <a href="/inscripciones/materias" class="alert-link">Inscribir materias</a>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private UsuarioPerfilDto? _currentUser;
+    private EstudianteDto? _estudiante;
+    private List<InscripcionDto>? _inscripciones;
+    private bool _loading = true;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _loading = true;
+            _errorMessage = null;
+
+            // Intentar obtener el perfil del usuario
+            _currentUser = AuthService.GetCurrentUser();
+
+            if (_currentUser == null)
+            {
+                var perfilResult = await AuthService.GetProfile();
+                if (perfilResult.Success)
+                {
+                    _currentUser = perfilResult.Data;
+                }
+                else
+                {
+                    _errorMessage = "No se pudo obtener información del usuario: " + perfilResult.Message;
+                    return;
+                }
+            }
+
+            if (_currentUser != null && _currentUser.Rol == "Estudiante")
+            {
+                // Buscar el estudiante asociado al usuario
+                var estudiantes = await EstudianteService.GetAll();
+                if (estudiantes.Success)
+                {
+                    _estudiante = estudiantes.Data?.FirstOrDefault(e => e.UsuarioId == _currentUser.Id);
+
+                    if (_estudiante != null)
+                    {
+                        // Obtener las inscripciones del estudiante
+                        var inscripcionesResult = await InscripcionService.GetByEstudiante(_estudiante.Id);
+                        if (inscripcionesResult.Success)
+                        {
+                            _inscripciones = inscripcionesResult.Data;
+                        }
+                        else
+                        {
+                            _errorMessage = "No se pudo obtener las inscripciones: " + inscripcionesResult.Message;
+                        }
+                    }
+                    else
+                    {
+                        _errorMessage = "No se encontró información del estudiante asociada a este usuario.";
+                    }
+                }
+                else
+                {
+                    _errorMessage = "No se pudo obtener la lista de estudiantes: " + estudiantes.Message;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = "Error al cargar datos: " + ex.Message;
+            Console.Error.WriteLine(ex);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private string GetWelcomeMessage()
+    {
+        if (_currentUser?.Rol == "Admin")
+        {
+            return "Administre estudiantes, materias e inscripciones desde su panel de control.";
+        }
+        else if (_currentUser?.Rol == "Estudiante")
+        {
+            return "Gestione sus materias inscritas y consulte su información académica.";
+        }
+        else if (_currentUser?.Rol == "Profesor")
+        {
+            return "Consulte sus clases asignadas y estudiantes registrados.";
+        }
+        else
+        {
+            return "Bienvenido al sistema de gestión académica.";
+        }
+    }
+
+    private string GetStatusBadgeClass(string estado)
+    {
+        return estado switch
+        {
+            "Inscrito" => "bg-success",
+            "Cancelado" => "bg-danger",
+            "Completado" => "bg-info",
+            _ => "bg-secondary"
+        };
+    }
+
+    private string GetGradeBadgeClass(decimal calificacion)
+    {
+        return calificacion switch
+        {
+            >= 4.5m => "bg-success",
+            >= 3.0m => "bg-info",
+            >= 2.0m => "bg-warning",
+            _ => "bg-danger"
+        };
+    }
+}

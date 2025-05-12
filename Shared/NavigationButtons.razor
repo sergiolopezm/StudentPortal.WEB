@@ -1,0 +1,34 @@
+﻿<div class="d-flex mt-2 mb-3">
+    @if (ShowBack)
+    {
+        <button class="btn btn-outline-secondary me-2" @onclick="GoBack">
+            <i class="bi bi-arrow-left"></i> Volver
+        </button>
+    }
+
+    @if (ShowHome)
+    {
+        <a href="/dashboard" class="btn btn-outline-primary">
+            <i class="bi bi-house-door"></i> Panel Principal
+        </a>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public bool ShowBack { get; set; } = true;
+
+    [Parameter]
+    public bool ShowHome { get; set; } = true;
+
+    [Inject]
+    private NavigationManager Navigation { get; set; } = null!;
+
+    [Inject]
+    private IJSRuntime JSRuntime { get; set; } = null!;
+
+    private async Task GoBack()
+    {
+        await JSRuntime.InvokeVoidAsync("history.back");
+    }
+}

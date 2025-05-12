@@ -1,0 +1,307 @@
+﻿@page "/inscripciones/materias"
+@attribute [Authorize(Roles = "Estudiante")]
+@inject IAuthService AuthService
+@inject IEstudianteService EstudianteService
+@inject IMateriaService MateriaService
+@inject IInscripcionService InscripcionService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Seleccionar Materias - Student Portal</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Seleccionar Materias</h1>
+        <a href="/inscripciones/clases" class="btn btn-secondary">Ver Mis Clases</a>
+    </div>
+
+    <NavigationButtons />
+    
+    @if (_loading)
+    {
+        <Loading IsLoading="true" Message="Cargando materias disponibles..." />
+    }
+    else if (_errorMessage != null)
+    {
+        <Alert AlertType="danger" Title="Error" Message="@_errorMessage" OnClose="ClearError" />
+    }
+    else if (_successMessage != null)
+    {
+        <Alert AlertType="success" Message="@_successMessage" OnClose="ClearSuccess" />
+    }
+    
+    @if (_estudiante != null)
+    {
+        <div class="card mb-4">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">Información del Estudiante</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Nombre:</strong> @_estudiante.NombreCompleto</p>
+                        <p><strong>Identificación:</strong> @_estudiante.Identificacion</p>
+                        <p><strong>Programa:</strong> @_estudiante.Programa</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>Materias Inscritas:</strong> @_estudiante.MateriasInscritasCount de 3</p>
+                        <p><strong>Créditos Actuales:</strong> @_estudiante.CreditosActuales</p>
+                        @if (_estudiante.MateriasInscritasCount >= 3)
+                        {
+                            <div class="alert alert-warning mb-0">
+                                Ya has alcanzado el máximo de 3 materias permitidas.
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+    
+    @if (_materias != null && _materias.Any() && _estudiante != null && _estudiante.MateriasInscritasCount < 3)
+    {
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Materias Disponibles</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Código</th>
+                                <th>Nombre</th>
+                                <th>Créditos</th>
+                                <th>Profesores</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var materia in _materias.Where(m => !_materiasInscritas.Contains(m.Id)))
+                            {
+                                <tr>
+                                    <td>@materia.Codigo</td>
+                                    <td>@materia.Nombre</td>
+                                    <td>@materia.Creditos</td>
+                                    <td>
+                                        @if (materia.Profesores != null && materia.Profesores.Any())
+                                        {
+                                            <ul class="list-unstyled mb-0">
+                                                @foreach (var profesor in materia.Profesores)
+                                                {
+                                                    <li>@profesor</li>
+                                                }
+                                            </ul>
+                                        }
+                                        else
+                                        {
+                                            <span>Sin profesores asignados</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-success btn-sm" @onclick="() => InscribirMateria(materia.Id)" disabled="@_inscribiendo">
+                                            @if (_inscribiendo && _materiaInscribiendo == materia.Id)
+                                            {
+                                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                                <span class="ms-1">Inscribiendo...</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="oi oi-plus me-1"></span>
+                                                <span>Inscribir</span>
+                                            }
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                
+                @if (_paginationInfo != null)
+                {
+                    <div class="mt-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            Mostrando <strong>@(_paginationInfo.Lista?.Count ?? 0)</strong> de <strong>@_paginationInfo.TotalRegistros</strong> materias
+                        </div>
+                        <Pagination 
+                            CurrentPage="@_paginationInfo.Pagina" 
+                            TotalPages="@_paginationInfo.TotalPaginas" 
+                            OnPageChanged="HandlePageChange" />
+                    </div>
+                }
+            </div>
+        </div>
+    }
+    else if (_estudiante != null && _estudiante.MateriasInscritasCount >= 3)
+    {
+        <div class="alert alert-info">
+            Ya has inscrito el máximo de 3 materias permitidas. 
+            <a href="/inscripciones/clases" class="alert-link">Ver mis clases</a>
+        </div>
+    }
+    else if (!_loading)
+    {
+        <div class="alert alert-warning">
+            No hay materias disponibles para inscripción.
+        </div>
+    }
+</div>
+
+@code {
+    private EstudianteDto? _estudiante;
+    private List<MateriaDto>? _materias;
+    private PaginacionDto<MateriaDto>? _paginationInfo;
+    private List<int> _materiasInscritas = new List<int>();
+    private bool _loading = true;
+    private bool _inscribiendo = false;
+    private int _materiaInscribiendo = 0;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private int _currentPage = 1;
+    private int _itemsPerPage = 10;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await CargarDatosEstudiante();
+        await CargarMaterias();
+    }
+    
+    private async Task CargarDatosEstudiante()
+    {
+        try
+        {
+            var usuarioActual = AuthService.GetCurrentUser();
+            if (usuarioActual == null)
+            {
+                var profileResult = await AuthService.GetProfile();
+                if (profileResult.Success)
+                {
+                    usuarioActual = profileResult.Data;
+                }
+                else
+                {
+                    _errorMessage = "No se pudo obtener información del usuario actual";
+                    return;
+                }
+            }
+            
+            // Buscar el estudiante asociado al usuario
+            var estudiantesResult = await EstudianteService.GetAll();
+            if (estudiantesResult.Success && estudiantesResult.Data != null)
+            {
+                _estudiante = estudiantesResult.Data.FirstOrDefault(e => e.UsuarioId == usuarioActual!.Id);
+                
+                if (_estudiante != null)
+                {
+                    // Obtener las inscripciones del estudiante
+                    var inscripcionesResult = await InscripcionService.GetByEstudiante(_estudiante.Id);
+                    if (inscripcionesResult.Success && inscripcionesResult.Data != null)
+                    {
+                        // Crear lista de IDs de materias ya inscritas
+                        _materiasInscritas = inscripcionesResult.Data
+                            .Where(i => i.Estado == "Inscrito")
+                            .Select(i => i.MateriaId)
+                            .ToList();
+                    }
+                }
+                else
+                {
+                    _errorMessage = "No se encontró información de estudiante para el usuario actual";
+                }
+            }
+            else
+            {
+                _errorMessage = estudiantesResult.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al cargar datos del estudiante: {ex.Message}";
+        }
+    }
+    
+    private async Task CargarMaterias()
+    {
+        _loading = true;
+        _errorMessage = null;
+        
+        try
+        {
+            var result = await MateriaService.GetPaginated(_currentPage, _itemsPerPage);
+            
+            if (result.Success)
+            {
+                _paginationInfo = result.Data;
+                _materias = _paginationInfo?.Lista;
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al cargar materias: {ex.Message}";
+        }
+        
+        _loading = false;
+    }
+    
+    private async Task HandlePageChange(int page)
+    {
+        _currentPage = page;
+        await CargarMaterias();
+    }
+    
+    private async Task InscribirMateria(int materiaId)
+    {
+        if (_estudiante == null) return;
+        
+        _inscribiendo = true;
+        _materiaInscribiendo = materiaId;
+        _errorMessage = null;
+        _successMessage = null;
+        
+        try
+        {
+            var inscripcion = new InscripcionDto
+            {
+                EstudianteId = _estudiante.Id,
+                MateriaId = materiaId,
+                Estado = "Inscrito"
+            };
+            
+            var result = await InscripcionService.Inscribir(inscripcion);
+            
+            if (result.Success)
+            {
+                _successMessage = "Materia inscrita correctamente";
+                _materiasInscritas.Add(materiaId);
+                
+                // Actualizar datos del estudiante
+                await CargarDatosEstudiante();
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al inscribir materia: {ex.Message}";
+        }
+        
+        _inscribiendo = false;
+        _materiaInscribiendo = 0;
+    }
+    
+    private void ClearError()
+    {
+        _errorMessage = null;
+    }
+    
+    private void ClearSuccess()
+    {
+        _successMessage = null;
+    }
+}

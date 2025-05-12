@@ -1,0 +1,205 @@
+﻿@page "/estudiantes/crear"
+@page "/estudiantes/editar/{Id:int}"
+@attribute [Authorize(Roles = "Admin")]
+@inject IEstudianteService EstudianteService
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(_esEdicion ? "Editar" : "Crear") Estudiante - Student Portal</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>@(_esEdicion ? "Editar" : "Crear") Estudiante</h1>
+        <a href="/estudiantes" class="btn btn-secondary">Volver a la Lista</a>
+    </div>
+
+    <NavigationButtons />
+    
+    @if (_loading)
+    {
+        <Loading IsLoading="true" Message="@(_esEdicion ? "Cargando información del estudiante..." : "Preparando formulario...")" />
+    }
+    else if (_errorMessage != null)
+    {
+        <Alert AlertType="danger" Title="Error" Message="@_errorMessage" OnClose="ClearError" />
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">@(_esEdicion ? "Actualizar" : "Registrar") Información del Estudiante</h5>
+            </div>
+            <div class="card-body">
+                <EditForm Model="@_estudiante" OnValidSubmit="HandleSubmit">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary class="text-danger mb-3" />
+                    
+                    @if (_successMessage != null)
+                    {
+                        <Alert AlertType="success" Message="@_successMessage" OnClose="ClearSuccess" />
+                    }
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="usuarioId" class="form-label">Usuario ID</label>
+                            <InputGuid id="usuarioId" class="form-control" @bind-Value="_estudiante.UsuarioId" readonly="@_esEdicion" />
+                            <ValidationMessage For="@(() => _estudiante.UsuarioId)" />
+                            <small class="form-text text-muted">
+                                Debe ser un ID de usuario válido con rol de Estudiante.
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="identificacion" class="form-label">Identificación</label>
+                            <InputText id="identificacion" class="form-control" @bind-Value="_estudiante.Identificacion" />
+                            <ValidationMessage For="@(() => _estudiante.Identificacion)" />
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="telefono" class="form-label">Teléfono</label>
+                            <InputText id="telefono" class="form-control" @bind-Value="_estudiante.Telefono" />
+                            <ValidationMessage For="@(() => _estudiante.Telefono)" />
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label for="programaId" class="form-label">Programa</label>
+                            <InputNumber id="programaId" class="form-control" @bind-Value="_estudiante.ProgramaId" />
+                            <ValidationMessage For="@(() => _estudiante.ProgramaId)" />
+                            <small class="form-text text-muted">
+                                Ingrese el ID del programa.
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="carrera" class="form-label">Carrera</label>
+                        <InputText id="carrera" class="form-control" @bind-Value="_estudiante.Carrera" />
+                        <ValidationMessage For="@(() => _estudiante.Carrera)" />
+                    </div>
+                    
+                    @if (_esEdicion)
+                    {
+                        <div class="mb-3 form-check">
+                            <InputCheckbox id="activo" class="form-check-input" @bind-Value="_estudiante.Activo" />
+                            <label class="form-check-label" for="activo">Activo</label>
+                        </div>
+                    }
+                    
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary" disabled="@_submitting">
+                            @if (_submitting)
+                            {
+                                <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                <span class="ms-2">Guardando...</span>
+                            }
+                            else
+                            {
+                                <span>@(_esEdicion ? "Actualizar" : "Crear") Estudiante</span>
+                            }
+                        </button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public string? Id { get; set; }
+    
+    private EstudianteDto _estudiante = new EstudianteDto();
+    private bool _esEdicion => !string.IsNullOrEmpty(Id);
+    private bool _loading = true;
+    private bool _submitting = false;
+    private string? _errorMessage;
+    private string? _successMessage;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadEstudiante();
+    }
+    
+    private async Task LoadEstudiante()
+    {
+        _loading = true;
+        _errorMessage = null;
+        
+        if (_esEdicion && int.TryParse(Id, out var estudianteId))
+        {
+            var result = await EstudianteService.GetById(estudianteId);
+            
+            if (result.Success)
+            {
+                _estudiante = result.Data!;
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        else if (!_esEdicion)
+        {
+            // Inicializar un nuevo estudiante
+            _estudiante = new EstudianteDto
+            {
+                Activo = true
+            };
+        }
+        else
+        {
+            _errorMessage = "ID de estudiante inválido";
+        }
+        
+        _loading = false;
+    }
+    
+    private async Task HandleSubmit()
+    {
+        _submitting = true;
+        _errorMessage = null;
+        _successMessage = null;
+        
+        if (_esEdicion)
+        {
+            var result = await EstudianteService.Update(int.Parse(Id!), _estudiante);
+            
+            if (result.Success)
+            {
+                _successMessage = "Estudiante actualizado correctamente";
+                _estudiante = result.Data!;
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        else
+        {
+            var result = await EstudianteService.Create(_estudiante);
+            
+            if (result.Success)
+            {
+                _successMessage = "Estudiante creado correctamente";
+                NavigationManager.NavigateTo($"/estudiantes/{result.Data!.Id}");
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        
+        _submitting = false;
+    }
+    
+    private void ClearError()
+    {
+        _errorMessage = null;
+    }
+    
+    private void ClearSuccess()
+    {
+        _successMessage = null;
+    }
+}

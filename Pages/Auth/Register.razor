@@ -1,0 +1,282 @@
+﻿@page "/auth/register"
+@attribute [Authorize(Roles = "Admin")]
+@inject IAuthService AuthService
+@inject IProgramaService ProgramaService
+@inject NavigationManager NavigationManager
+
+<PageTitle>Registrar Usuario - Student Portal</PageTitle>
+
+<div class="container">
+    <div class="row justify-content-center mt-3">
+        <div class="col-md-10">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Registrar Nuevo Usuario</h3>
+                </div>
+
+                <NavigationButtons />
+
+                <div class="card-body">
+                    <EditForm Model="@_registroModel" OnValidSubmit="HandleRegistro">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary class="text-danger mb-3" />
+
+                        @if (!string.IsNullOrEmpty(_errorMessage))
+                        {
+                            <div class="alert alert-danger">
+                                @_errorMessage
+                            </div>
+                        }
+
+                        @if (!string.IsNullOrEmpty(_successMessage))
+                        {
+                            <div class="alert alert-success">
+                                @_successMessage
+                            </div>
+                        }
+
+                        <h4 class="mb-3">Información del Usuario</h4>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="nombreUsuario" class="form-label">Nombre de Usuario</label>
+                                <InputText id="nombreUsuario" class="form-control" @bind-Value="_registroModel.NombreUsuario" />
+                                <ValidationMessage For="@(() => _registroModel.NombreUsuario)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email</label>
+                                <InputText id="email" class="form-control" type="email" @bind-Value="_registroModel.Email" />
+                                <ValidationMessage For="@(() => _registroModel.Email)" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="nombre" class="form-label">Nombre</label>
+                                <InputText id="nombre" class="form-control" @bind-Value="_registroModel.Nombre" />
+                                <ValidationMessage For="@(() => _registroModel.Nombre)" />
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="apellido" class="form-label">Apellido</label>
+                                <InputText id="apellido" class="form-control" @bind-Value="_registroModel.Apellido" />
+                                <ValidationMessage For="@(() => _registroModel.Apellido)" />
+                            </div>
+                        </div>
+
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="contraseña" class="form-label">Contraseña</label>
+                                <InputText id="contraseña" class="form-control" type="password" @bind-Value="_registroModel.Contraseña" />
+                                <ValidationMessage For="@(() => _registroModel.Contraseña)" />
+                                <small class="form-text text-muted">
+                                    La contraseña debe tener al menos 6 caracteres, una mayúscula, una minúscula y un número.
+                                </small>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="rol" class="form-label">Rol</label>
+                                <InputSelect id="rol" class="form-control" @bind-Value="_registroModel.RolId" @onchange="RolSeleccionadoCambio">
+                                    <option value="0">-- Seleccione un rol --</option>
+                                    <option value="2">Profesor</option>
+                                    <option value="3">Estudiante</option>
+                                </InputSelect>
+                                <ValidationMessage For="@(() => _registroModel.RolId)" />
+                            </div>
+                        </div>
+
+                        @if (_registroModel.RolId == 3) // Estudiante
+                        {
+                            <hr />
+                            <h4 class="mb-3">Información del Estudiante</h4>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="identificacionEstudiante" class="form-label">Identificación *</label>
+                                    <InputText id="identificacionEstudiante" class="form-control" @bind-Value="_estudianteInfo.Identificacion" />
+                                    <ValidationMessage For="@(() => _estudianteInfo.Identificacion)" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="telefonoEstudiante" class="form-label">Teléfono</label>
+                                    <InputText id="telefonoEstudiante" class="form-control" @bind-Value="_estudianteInfo.Telefono" />
+                                    <ValidationMessage For="@(() => _estudianteInfo.Telefono)" />
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="carrera" class="form-label">Carrera</label>
+                                    <InputText id="carrera" class="form-control" @bind-Value="_estudianteInfo.Carrera" />
+                                    <ValidationMessage For="@(() => _estudianteInfo.Carrera)" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="programaId" class="form-label">Programa *</label>
+                                    @if (_programas != null && _programas.Any())
+                                    {
+                                        <InputSelect id="programaId" class="form-control" @bind-Value="_estudianteInfo.ProgramaId">
+                                            @foreach (var programa in _programas)
+                                            {
+                                                <option value="@programa.Id">@programa.Nombre</option>
+                                            }
+                                        </InputSelect>
+                                    }
+                                    else
+                                    {
+                                        <InputNumber id="programaId" class="form-control" @bind-Value="_estudianteInfo.ProgramaId" />
+                                        <small class="form-text text-muted">
+                                            ID del programa (Por defecto: 1 - Programa General)
+                                        </small>
+                                    }
+                                    <ValidationMessage For="@(() => _estudianteInfo.ProgramaId)" />
+                                </div>
+                            </div>
+                        }
+
+                        @if (_registroModel.RolId == 2) // Profesor
+                        {
+                            <hr />
+                            <h4 class="mb-3">Información del Profesor</h4>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="identificacionProfesor" class="form-label">Identificación *</label>
+                                    <InputText id="identificacionProfesor" class="form-control" @bind-Value="_profesorInfo.Identificacion" />
+                                    <ValidationMessage For="@(() => _profesorInfo.Identificacion)" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label for="telefonoProfesor" class="form-label">Teléfono</label>
+                                    <InputText id="telefonoProfesor" class="form-control" @bind-Value="_profesorInfo.Telefono" />
+                                    <ValidationMessage For="@(() => _profesorInfo.Telefono)" />
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="departamento" class="form-label">Departamento</label>
+                                    <InputText id="departamento" class="form-control" @bind-Value="_profesorInfo.Departamento" />
+                                    <ValidationMessage For="@(() => _profesorInfo.Departamento)" />
+                                </div>
+                            </div>
+                        }
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary" disabled="@_loading">
+                                @if (_loading)
+                                {
+                                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                    <span class="ms-2">Cargando...</span>
+                                }
+                                else
+                                {
+                                    <span>Registrar Usuario</span>
+                                }
+                            </button>
+                        </div>
+                    </EditForm>
+                </div>
+                <div class="card-footer">
+                    <a href="/estudiantes" class="btn btn-secondary">Volver a la lista de estudiantes</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private UsuarioRegistroCompletoDto _registroModel = new();
+    private EstudianteDto _estudianteInfo = new();
+    private ProfesorDto _profesorInfo = new();
+    private bool _loading = false;
+    private string? _errorMessage;
+    private string? _successMessage;
+    private List<ProgramaDto>? _programas;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _registroModel = new UsuarioRegistroCompletoDto();
+        _estudianteInfo = new EstudianteDto { ProgramaId = 1 }; // Valor por defecto
+        _profesorInfo = new ProfesorDto();
+
+        // Cargar programas desde la API
+        var programasResult = await ProgramaService.GetAll();
+        if (programasResult.Success)
+        {
+            _programas = programasResult.Data;
+        }
+    }
+
+    private void RolSeleccionadoCambio(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out int rolId))
+        {
+            _registroModel.RolId = rolId;
+        }
+    }
+
+    private async Task HandleRegistro()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _successMessage = null;
+
+        try
+        {
+            // Configurar la información específica del rol
+            if (_registroModel.RolId == 3) // Estudiante
+            {
+                if (string.IsNullOrWhiteSpace(_estudianteInfo.Identificacion))
+                {
+                    _errorMessage = "La identificación del estudiante es obligatoria";
+                    _loading = false;
+                    return;
+                }
+
+                if (_estudianteInfo.ProgramaId <= 0)
+                {
+                    _errorMessage = "Debe seleccionar un programa válido";
+                    _loading = false;
+                    return;
+                }
+
+                _registroModel.EstudianteInfo = _estudianteInfo;
+            }
+            else if (_registroModel.RolId == 2) // Profesor
+            {
+                if (string.IsNullOrWhiteSpace(_profesorInfo.Identificacion))
+                {
+                    _errorMessage = "La identificación del profesor es obligatoria";
+                    _loading = false;
+                    return;
+                }
+
+                _registroModel.ProfesorInfo = _profesorInfo;
+            }
+
+            var result = await AuthService.RegisterComplete(_registroModel);
+
+            if (result.Success)
+            {
+                _successMessage = "Usuario registrado correctamente.";
+                _registroModel = new UsuarioRegistroCompletoDto();
+                _estudianteInfo = new EstudianteDto { ProgramaId = 1 };
+                _profesorInfo = new ProfesorDto();
+            }
+            else
+            {
+                _errorMessage = result.Message;
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"Error al registrar: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

@@ -1,0 +1,47 @@
+﻿@typeparam TItem
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                @TableHeader
+            </tr>
+        </thead>
+        <tbody>
+            @if (Items != null && Items.Any())
+            {
+                @foreach (var item in Items)
+                {
+                    <tr @onclick="() => OnRowClick.InvokeAsync(item)">
+                        @RowTemplate(item)
+                    </tr>
+                }
+            }
+            else
+            {
+                <tr>
+                    <td colspan="@ColumnCount" class="text-center">
+                        No hay registros para mostrar
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    [Parameter]
+    public IEnumerable<TItem> Items { get; set; } = new List<TItem>();
+
+    [Parameter]
+    public RenderFragment TableHeader { get; set; } = null!;
+
+    [Parameter]
+    public RenderFragment<TItem> RowTemplate { get; set; } = null!;
+
+    [Parameter]
+    public int ColumnCount { get; set; }
+
+    [Parameter]
+    public EventCallback<TItem> OnRowClick { get; set; }
+}
