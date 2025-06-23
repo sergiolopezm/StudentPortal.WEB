@@ -4,13 +4,13 @@
         <h4 class="alert-heading">@Title</h4>
     }
     <p>@Message</p>
-    <button type="button" class="btn-close" @onclick="OnClose" aria-label="Close"></button>
+    <button type="button" class="btn-close" style="position: absolute; top: 0.625rem; right: 0.625rem;" @onclick="OnClose" aria-label="Close"></button>
 </div>
 
 @code {
     [Parameter]
-    public string AlertType { get; set; } = "info"; // success, info, warning, danger
-
+    public string AlertType { get; set; } = "info";
+    
     [Parameter]
     public string Title { get; set; } = "";
 

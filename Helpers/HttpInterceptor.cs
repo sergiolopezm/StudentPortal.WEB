@@ -40,18 +40,12 @@ namespace StudentPortal.WEB.Helpers
             // ► Enviar
             var response = await base.SendAsync(request, cancellationToken);
 
-            // ► 401  → forzar logout
+            // ► 401 → forzar logout
             if (response.StatusCode == HttpStatusCode.Unauthorized)
             {
                 await _local.RemoveItemAsync("authToken");
                 await _local.RemoveItemAsync("usuarioId");
                 _nav.NavigateTo("/login", forceLoad: true);
-            }
-            // ► Cualquier otro error → alerta genérica
-            else if (!response.IsSuccessStatusCode)
-            {
-                var mensaje = $"Error {(int)response.StatusCode}: Ocurrió un error inesperado.";
-                await _js.InvokeVoidAsync("StudentPortal.mostrarAlerta", mensaje);
             }
 
             return response;

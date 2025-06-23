@@ -374,3 +374,36 @@ a, .btn-link {
 .top-row {
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08); /* casi imperceptible */
 }
+/* Corregir posición del botón cierre en alertas */
+.alert-dismissible .btn-close {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 0.75rem 1rem;
+    z-index: 2;
+}
+
+/* Para asegurar que el botón de cerrar se muestra correctamente en alertas */
+.alert {
+    position: relative;
+}
+
+/* Asegurar que el botón de cierre de alertas aparezca en la esquina superior derecha */
+.alert-dismissible .btn-close {
+    position: absolute !important;
+    top: 0.5rem !important;
+    right: 0.5rem !important;
+    z-index: 5 !important;
+    padding: 0.5rem !important;
+}
+
+/* Estilos para forzar la posición correcta del botón de cierre en alertas */
+.alert-dismissible .btn-close {
+    position: absolute !important;
+    top: 0.625rem !important;
+    right: 0.625rem !important;
+    padding: 0.25rem 0.5rem !important;
+    z-index: 5 !important;
+    float: none !important;
+    margin: 0 !important;
+}

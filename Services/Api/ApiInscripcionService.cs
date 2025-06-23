@@ -202,17 +202,29 @@ namespace StudentPortal.WEB.Services.Api
             {
                 await SetAuthorizationHeader();
 
-                var response = await _httpClient.PostAsJsonAsync("api/InscripcionEstudiante", inscripcion);
+                // Registrar en consola lo que estamos enviando para depuración
+                Console.WriteLine($"Inscribiendo: EstudianteId={inscripcion.EstudianteId}, MateriaId={inscripcion.MateriaId}");
+
+                // Asegurarse que la URL es correcta (sin sufijos extraños)
+                const string endpoint = "api/InscripcionEstudiante";
+                Console.WriteLine($"Enviando petición a: {endpoint}");
+                
+                var response = await _httpClient.PostAsJsonAsync(endpoint, inscripcion);
+
+                // Siempre leer el contenido completo de la respuesta, independientemente del estado
+                var responseContent = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"Respuesta del servidor: {response.StatusCode} - {responseContent}");
 
                 if (response.IsSuccessStatusCode)
                 {
-                    var jsonResponse = await response.Content.ReadFromJsonAsync<JsonElement>();
-                    var exito = jsonResponse.GetProperty("exito").GetBoolean();
-                    var mensaje = jsonResponse.GetProperty("mensaje").GetString() ?? "Inscripción creada";
+                    var jsonResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                    var exito = jsonResponse.TryGetProperty("exito", out var exitoProperty) ? exitoProperty.GetBoolean() : false;
+                    var mensaje = jsonResponse.TryGetProperty("mensaje", out var mensajeProperty) ? 
+                        mensajeProperty.GetString() : "Inscripción creada";
 
-                    if (exito)
+                    if (exito && jsonResponse.TryGetProperty("resultado", out var resultadoProperty))
                     {
-                        var resultadoJson = jsonResponse.GetProperty("resultado").ToString();
+                        var resultadoJson = resultadoProperty.ToString();
                         var resultado = JsonSerializer.Deserialize<InscripcionDto>(resultadoJson, new JsonSerializerOptions
                         {
                             PropertyNameCaseInsensitive = true
@@ -221,19 +233,58 @@ namespace StudentPortal.WEB.Services.Api
                         return (true, mensaje, resultado);
                     }
 
-                    return (false, mensaje, null);
+                    return (false, mensaje ?? "Error desconocido", null);
+                }
+                else if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+                {
+                    try
+                    {
+                        var jsonResponse = JsonSerializer.Deserialize<JsonElement>(responseContent);
+                        string mensaje = "Error al inscribir materia";
+                        string detalle = "";
+
+                        if (jsonResponse.TryGetProperty("mensaje", out var mensajeProperty))
+                        {
+                            mensaje = mensajeProperty.GetString() ?? mensaje;
+                            if (jsonResponse.TryGetProperty("detalle", out var detalleProperty))
+                            {
+                                detalle = detalleProperty.GetString() ?? "";
+                            }
+                        }
+                        // Verificar si es formato de validación de ASP.NET Core
+                        else if (jsonResponse.TryGetProperty("title", out var titleProperty))
+                        {
+                            mensaje = titleProperty.GetString() ?? mensaje;
+                            if (jsonResponse.TryGetProperty("errors", out var errorsProperty))
+                            {
+                                var errorsArray = new List<string>();
+                                foreach (var error in errorsProperty.EnumerateObject())
+                                {
+                                    foreach (var item in error.Value.EnumerateArray())
+                                    {
+                                        errorsArray.Add($"{error.Name}: {item.GetString()}");
+                                    }
+                                }
+                                detalle = string.Join(", ", errorsArray);
+                            }
+                        }
+
+                        return (false, detalle.Length > 0 ? $"{mensaje}: {detalle}" : mensaje, null);
+                    }
+                    catch
+                    {
+                        return (false, $"Error de formato en la solicitud. Respuesta: {responseContent}", null);
+                    }
                 }
                 else
                 {
-                    var jsonResponse = await response.Content.ReadFromJsonAsync<JsonElement>();
-                    var mensaje = jsonResponse.GetProperty("mensaje").GetString() ?? "Error inscribiendo en materia";
-                    var detalle = jsonResponse.GetProperty("detalle").GetString() ?? "";
-                    return (false, $"{mensaje}: {detalle}", null);
+                    return (false, $"Error del servidor ({response.StatusCode}): {responseContent}", null);
                 }
             }
             catch (Exception ex)
             {
-                return (false, $"Error: {ex.Message}", null);
+                Console.WriteLine($"Excepción en Inscribir: {ex.Message}");
+                return (false, $"Error de conexión: {ex.Message}", null);
             }
         }
 
