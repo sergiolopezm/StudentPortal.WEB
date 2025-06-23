@@ -4,14 +4,36 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Desactivar completamente el procesamiento de assets estáticos -->
+    <StaticWebAssetsCacheBootResources>false</StaticWebAssetsCacheBootResources>
+    <BlazorCacheBootResources>false</BlazorCacheBootResources>
+    <BlazorWebAssemblyEnableLinking>false</BlazorWebAssemblyEnableLinking>
+    <DisableStaticWebAssetsBuildTimeGeneration>true</DisableStaticWebAssetsBuildTimeGeneration>
+
+    <!-- Especificar el uso del runtime de WebAssembly -->
+    <UseRidGraph>true</UseRidGraph>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="8.0.15" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="8.0.15" PrivateAssets="all" />
-   <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.15" /> 
+    <PackageReference Include="Microsoft.AspNetCore.Components.Authorization" Version="8.0.15" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.1" />
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.1" />
   </ItemGroup>
+
+  <!-- Target para reparar el archivo blazor.webassembly.js -->
+  <Target Name="FixWebAssemblyJs" AfterTargets="Build" Condition="!Exists('$(OutputPath)wwwroot\_framework\blazor.webassembly.js')">
+    <Message Importance="high" Text="Creando archivo blazor.webassembly.js" />
+    <Copy SourceFiles="$(MSBuildThisFileDirectory)..\..\..\..\Program Files\dotnet\sdk\8.0.411\StaticWebAssets\blazor.webassembly.js"
+          DestinationFolder="$(OutputPath)wwwroot\_framework\" Condition="Exists('$(MSBuildThisFileDirectory)..\..\..\..\Program Files\dotnet\sdk\8.0.411\StaticWebAssets\blazor.webassembly.js')" />
+  </Target>
+  
+  <PropertyGroup>
+  <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+  <StaticWebAssetClean>false</StaticWebAssetClean>
+</PropertyGroup>
 
 </Project>
