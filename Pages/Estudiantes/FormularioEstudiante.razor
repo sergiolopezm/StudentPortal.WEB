@@ -3,13 +3,16 @@
 @attribute [Authorize(Roles = "Admin")]
 @inject IEstudianteService EstudianteService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
 
 <PageTitle>@(_esEdicion ? "Editar" : "Crear") Estudiante - Student Portal</PageTitle>
 
 <div class="container mt-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>@(_esEdicion ? "Editar" : "Crear") Estudiante</h1>
-        <a href="/estudiantes" class="btn btn-secondary">Volver a la Lista</a>
+        <a href="/estudiantes" class="btn btn-secondary" title="Volver a la lista">
+            <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
+        </a>
     </div>
 
     <NavigationButtons />
@@ -20,7 +23,17 @@
     }
     else if (_errorMessage != null)
     {
-        <Alert AlertType="danger" Title="Error" Message="@_errorMessage" OnClose="ClearError" />
+        <div class="alert alert-danger">
+            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error</h4>
+            <p>@_errorMessage</p>
+            <hr />
+            <p class="mb-0">Detalles técnicos: @_errorDetail</p>
+            <div class="mt-3">
+                <button class="btn btn-primary" @onclick="ReloadData">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Intentar nuevamente
+                </button>
+            </div>
+        </div>
     }
     else
     {
@@ -107,17 +120,27 @@
 
 @code {
     [Parameter]
-    public string? Id { get; set; }
+    public int Id { get; set; }
     
     private EstudianteDto _estudiante = new EstudianteDto();
-    private bool _esEdicion => !string.IsNullOrEmpty(Id);
+    private bool _esEdicion => Id > 0;
     private bool _loading = true;
     private bool _submitting = false;
     private string? _errorMessage;
+    private string? _errorDetail;
     private string? _successMessage;
     
     protected override async Task OnInitializedAsync()
     {
+        await LoadEstudiante();
+    }
+
+    private async Task ReloadData()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _errorDetail = null;
+        StateHasChanged();
         await LoadEstudiante();
     }
     
@@ -125,34 +148,47 @@
     {
         _loading = true;
         _errorMessage = null;
+        _errorDetail = null;
         
-        if (_esEdicion && int.TryParse(Id, out var estudianteId))
+        try
         {
-            var result = await EstudianteService.GetById(estudianteId);
-            
-            if (result.Success)
+            if (_esEdicion)
             {
-                _estudiante = result.Data!;
+                var estudianteId = Id;
+                Console.WriteLine($"Cargando estudiante para edición ID: {estudianteId}");
+                
+                var result = await EstudianteService.GetById(estudianteId);
+                
+                if (result.Success && result.Data != null)
+                {
+                    _estudiante = result.Data;
+                }
+                else
+                {
+                    _errorMessage = result.Message ?? "Error al cargar los datos del estudiante";
+                    _errorDetail = $"ID: {estudianteId}, Éxito: {result.Success}";
+                    await JSRuntime.InvokeVoidAsync("console.error", "Error al cargar estudiante:", result);
+                }
             }
             else
             {
-                _errorMessage = result.Message;
+                // Inicializar un nuevo estudiante
+                _estudiante = new EstudianteDto
+                {
+                    Activo = true
+                };
             }
         }
-        else if (!_esEdicion)
+        catch (Exception ex)
         {
-            // Inicializar un nuevo estudiante
-            _estudiante = new EstudianteDto
-            {
-                Activo = true
-            };
+            _errorMessage = "Error al cargar datos del estudiante";
+            _errorDetail = ex.ToString();
+            await JSRuntime.InvokeVoidAsync("console.error", "Excepción al cargar estudiante:", ex.Message, ex.StackTrace);
         }
-        else
+        finally
         {
-            _errorMessage = "ID de estudiante inválido";
+            _loading = false;
         }
-        
-        _loading = false;
     }
     
     private async Task HandleSubmit()
@@ -161,36 +197,53 @@
         _errorMessage = null;
         _successMessage = null;
         
-        if (_esEdicion)
+        try
         {
-            var result = await EstudianteService.Update(int.Parse(Id!), _estudiante);
-            
-            if (result.Success)
+            if (_esEdicion)
             {
-                _successMessage = "Estudiante actualizado correctamente";
-                _estudiante = result.Data!;
+                var result = await EstudianteService.Update(Id, _estudiante);
+                
+                if (result.Success)
+                {
+                    _successMessage = "Estudiante actualizado correctamente";
+                    _estudiante = result.Data!;
+                    await JSRuntime.InvokeVoidAsync("console.log", "Estudiante actualizado:", result.Data);
+                }
+                else
+                {
+                    _errorMessage = result.Message ?? "Error al actualizar el estudiante";
+                    _errorDetail = "La API devolvió un error al intentar actualizar";
+                    await JSRuntime.InvokeVoidAsync("console.error", "Error al actualizar estudiante:", result);
+                }
             }
             else
             {
-                _errorMessage = result.Message;
+                var result = await EstudianteService.Create(_estudiante);
+                
+                if (result.Success)
+                {
+                    _successMessage = "Estudiante creado correctamente";
+                    await JSRuntime.InvokeVoidAsync("console.log", "Estudiante creado:", result.Data);
+                    NavigationManager.NavigateTo($"/estudiantes/{result.Data!.Id}");
+                }
+                else
+                {
+                    _errorMessage = result.Message ?? "Error al crear el estudiante";
+                    _errorDetail = "La API devolvió un error al intentar crear";
+                    await JSRuntime.InvokeVoidAsync("console.error", "Error al crear estudiante:", result);
+                }
             }
         }
-        else
+        catch (Exception ex)
         {
-            var result = await EstudianteService.Create(_estudiante);
-            
-            if (result.Success)
-            {
-                _successMessage = "Estudiante creado correctamente";
-                NavigationManager.NavigateTo($"/estudiantes/{result.Data!.Id}");
-            }
-            else
-            {
-                _errorMessage = result.Message;
-            }
+            _errorMessage = $"Error al {(_esEdicion ? "actualizar" : "crear")} estudiante";
+            _errorDetail = ex.ToString();
+            await JSRuntime.InvokeVoidAsync("console.error", "Excepción al guardar estudiante:", ex.Message, ex.StackTrace);
         }
-        
-        _submitting = false;
+        finally
+        {
+            _submitting = false;
+        }
     }
     
     private void ClearError()

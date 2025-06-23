@@ -3,6 +3,8 @@
 @inject IEstudianteService EstudianteService
 @inject IInscripcionService InscripcionService
 @inject NavigationManager NavigationManager
+@inject IJSRuntime JSRuntime
+@using System.Text.Json
 
 <PageTitle>Detalle de Estudiante - Student Portal</PageTitle>
 
@@ -10,8 +12,12 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1>Detalle de Estudiante</h1>
         <div>
-            <a href="/estudiantes" class="btn btn-secondary me-2">Volver a la Lista</a>
-            <a href="/estudiantes/editar/@Id" class="btn btn-warning">Editar</a>
+            <a href="/estudiantes" class="btn btn-secondary me-2" title="Volver a la lista">
+                <i class="bi bi-arrow-left me-1"></i> Volver a la Lista
+            </a>
+            <a href="/estudiantes/editar/@Id" class="btn btn-warning" title="Editar estudiante">
+                <i class="bi bi-pencil me-1"></i> Editar
+            </a>
         </div>
     </div>
 
@@ -23,7 +29,17 @@
     }
     else if (_errorMessage != null)
     {
-        <Alert AlertType="danger" Title="Error" Message="@_errorMessage" OnClose="ClearError" />
+        <div class="alert alert-danger">
+            <h4 class="alert-heading"><i class="bi bi-exclamation-triangle-fill me-2"></i>Error al cargar datos</h4>
+            <p>@_errorMessage</p>
+            <hr />
+            <p class="mb-0">Detalles técnicos: @_errorDetail</p>
+            <div class="mt-3">
+                <button class="btn btn-primary" @onclick="ReloadData">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Intentar nuevamente
+                </button>
+            </div>
+        </div>
     }
     else if (_estudiante != null)
     {
@@ -43,6 +59,11 @@
                         <p><strong>Carrera:</strong> @(_estudiante.Carrera ?? "No registrada")</p>
                         <p><strong>Materias Inscritas:</strong> @_estudiante.MateriasInscritasCount / 3</p>
                         <p><strong>Créditos Actuales:</strong> @_estudiante.CreditosActuales</p>
+                        <p><strong>Estado:</strong> 
+                            <span class="badge @(_estudiante.Activo ? "bg-success" : "bg-danger")">
+                                @(_estudiante.Activo ? "Activo" : "Inactivo")
+                            </span>
+                        </p>
                     </div>
                 </div>
             </div>
@@ -143,16 +164,26 @@
 
 @code {
     [Parameter]
-    public string Id { get; set; } = null!;
+    public int Id { get; set; }
     
     private EstudianteDto? _estudiante;
     private List<InscripcionDto>? _inscripciones;
     private List<CompaneroClaseDto>? _companeros;
     private bool _loading = true;
     private string? _errorMessage;
+    private string? _errorDetail;
     
     protected override async Task OnInitializedAsync()
     {
+        await LoadEstudiante();
+    }
+
+    private async Task ReloadData()
+    {
+        _loading = true;
+        _errorMessage = null;
+        _errorDetail = null;
+        StateHasChanged();
         await LoadEstudiante();
     }
     
@@ -160,45 +191,74 @@
     {
         _loading = true;
         _errorMessage = null;
+        _errorDetail = null;
         
-        if (int.TryParse(Id, out var estudianteId))
+        try
         {
+            var estudianteId = Id;
+            Console.WriteLine($"Intentando cargar estudiante ID: {estudianteId}");
+            
             // Cargar datos del estudiante
             var estudianteResult = await EstudianteService.GetById(estudianteId);
             
-            if (estudianteResult.Success)
+            if (estudianteResult.Success && estudianteResult.Data != null)
             {
                 _estudiante = estudianteResult.Data;
                 
-                // Cargar inscripciones del estudiante
-                var inscripcionesResult = await InscripcionService.GetByEstudiante(estudianteId);
-                if (inscripcionesResult.Success)
+                try
                 {
-                    _inscripciones = inscripcionesResult.Data;
+                    // Cargar inscripciones del estudiante
+                    var inscripcionesResult = await InscripcionService.GetByEstudiante(estudianteId);
+                    if (inscripcionesResult.Success)
+                    {
+                        _inscripciones = inscripcionesResult.Data;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error al cargar inscripciones: {inscripcionesResult.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Excepción al cargar inscripciones: {ex.Message}");
+                    // Continuar aunque falle la carga de inscripciones
                 }
                 
-                // Cargar compañeros de clase
-                var companerosResult = await EstudianteService.GetCompaneros(estudianteId);
-                if (companerosResult.Success)
+                try
                 {
-                    _companeros = companerosResult.Data;
+                    // Cargar compañeros de clase
+                    var companerosResult = await EstudianteService.GetCompaneros(estudianteId);
+                    if (companerosResult.Success)
+                    {
+                        _companeros = companerosResult.Data;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error al cargar compañeros: {companerosResult.Message}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Excepción al cargar compañeros: {ex.Message}");
+                    // Continuar aunque falle la carga de compañeros
                 }
             }
             else
             {
-                _errorMessage = estudianteResult.Message;
+                _errorMessage = estudianteResult.Message ?? "No se pudo cargar la información del estudiante";
+                _errorDetail = $"ID: {estudianteId}, Respuesta: {estudianteResult.Success}";
+                await JSRuntime.InvokeVoidAsync("console.error", "Error al cargar estudiante:", estudianteResult);
             }
         }
-        else
+        catch (Exception ex)
         {
-            _errorMessage = "ID de estudiante inválido";
+            _errorMessage = "Error al cargar datos del estudiante";
+            _errorDetail = ex.ToString();
+            await JSRuntime.InvokeVoidAsync("console.error", "Excepción al cargar estudiante:", ex.Message, ex.StackTrace);
         }
-        
-        _loading = false;
-    }
-    
-    private void ClearError()
-    {
-        _errorMessage = null;
+        finally
+        {
+            _loading = false;
+        }
     }
 }
